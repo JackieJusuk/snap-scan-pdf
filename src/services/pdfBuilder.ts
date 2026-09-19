@@ -8,13 +8,13 @@ const PAGE_HEIGHT_PT = 842;
 // Full-resolution scans (often 8-15MB) blow up ~33% as base64 and can make
 // the print WebView hang or OOM once multiple pages are embedded in one
 // HTML string, so downscale/compress before embedding.
-const MAX_EMBED_WIDTH = 1600;
+const MAX_EMBED_WIDTH = 2200;
 
 async function toDataUri(imageUri: string): Promise<string> {
   const resized = await ImageManipulator.manipulateAsync(
     imageUri,
     [{ resize: { width: MAX_EMBED_WIDTH } }],
-    { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+    { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG }
   );
   const base64 = await FileSystem.readAsStringAsync(resized.uri, {
     encoding: FileSystem.EncodingType.Base64,
