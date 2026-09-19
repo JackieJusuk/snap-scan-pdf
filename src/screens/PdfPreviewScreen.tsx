@@ -8,14 +8,22 @@ import { useDocuments } from "@/context/DocumentsContext";
 type Props = NativeStackScreenProps<RootStackParamList, "PdfPreview">;
 
 export default function PdfPreviewScreen({ navigation, route }: Props) {
-  const { documents, updateDocument, deleteDocument } = useDocuments();
+  const { documents, loading, updateDocument, deleteDocument } = useDocuments();
   const document = documents.find((doc) => doc.id === route.params.documentId);
   const [title, setTitle] = useState(document?.title ?? "");
 
   if (!document) {
+    // 임시 진단용 — "문서를 찾을 수 없습니다" 재현 시 원인 파악을 위해 실제 상태를 화면에 노출한다.
+    // 원인 확인되면 제거할 것.
     return (
       <View style={styles.container}>
         <Text>문서를 찾을 수 없습니다.</Text>
+        <Text style={styles.debugText}>찾는 ID: {route.params.documentId}</Text>
+        <Text style={styles.debugText}>{loading ? "documents 로딩 중..." : "documents 로딩 완료"}</Text>
+        <Text style={styles.debugText}>저장된 문서 수: {documents.length}</Text>
+        <Text style={styles.debugText}>
+          저장된 ID 목록: {documents.length ? documents.map((d) => d.id).join(", ") : "(없음)"}
+        </Text>
       </View>
     );
   }
@@ -89,6 +97,11 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#fff",
     padding: 20,
+  },
+  debugText: {
+    marginTop: 10,
+    fontSize: 12,
+    color: "#888",
   },
   titleInput: {
     fontSize: 20,
