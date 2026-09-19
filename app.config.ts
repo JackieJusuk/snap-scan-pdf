@@ -33,9 +33,4 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     permissions: ["CAMERA", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"],
   },
   plugins: ["react-native-document-scanner-plugin"],
-  extra: {
-    eas: {
-      projectId: "REPLACE_WITH_EAS_PROJECT_ID",
-    },
-  },
 });
