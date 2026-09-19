@@ -55,7 +55,8 @@ export default function PageEditorScreen({ navigation, route }: Props) {
         routes: [{ name: "Home" }, { name: "PdfPreview", params: { documentId: doc.id } }],
       });
     } catch (error) {
-      Alert.alert("PDF 생성 실패", "문서를 만드는 중 오류가 발생했습니다. 다시 시도해주세요.");
+      const message = error instanceof Error ? error.message : String(error);
+      Alert.alert("PDF 생성 실패", message);
     } finally {
       setProcessing(false);
     }

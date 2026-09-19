@@ -1,17 +1,25 @@
 import * as FileSystem from "expo-file-system";
+import * as ImageManipulator from "expo-image-manipulator";
 import * as Print from "expo-print";
 import { ScannedPage } from "@/types";
 
 const PAGE_WIDTH_PT = 595; // A4 @ 72dpi
 const PAGE_HEIGHT_PT = 842;
+// Full-resolution scans (often 8-15MB) blow up ~33% as base64 and can make
+// the print WebView hang or OOM once multiple pages are embedded in one
+// HTML string, so downscale/compress before embedding.
+const MAX_EMBED_WIDTH = 1600;
 
 async function toDataUri(imageUri: string): Promise<string> {
-  const base64 = await FileSystem.readAsStringAsync(imageUri, {
+  const resized = await ImageManipulator.manipulateAsync(
+    imageUri,
+    [{ resize: { width: MAX_EMBED_WIDTH } }],
+    { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+  );
+  const base64 = await FileSystem.readAsStringAsync(resized.uri, {
     encoding: FileSystem.EncodingType.Base64,
   });
-  const ext = imageUri.split(".").pop()?.toLowerCase();
-  const mime = ext === "png" ? "image/png" : "image/jpeg";
-  return `data:${mime};base64,${base64}`;
+  return `data:image/jpeg;base64,${base64}`;
 }
 
 /**
