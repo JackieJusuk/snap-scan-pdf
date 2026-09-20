@@ -6,12 +6,16 @@ import HomeScreen from "@/screens/HomeScreen";
 import ScanScreen from "@/screens/ScanScreen";
 import PageEditorScreen from "@/screens/PageEditorScreen";
 import PdfPreviewScreen from "@/screens/PdfPreviewScreen";
+import SettingsScreen from "@/screens/SettingsScreen";
+import ImportSummaryScreen from "@/screens/ImportSummaryScreen";
 
 export type RootStackParamList = {
   Home: undefined;
   Scan: { draftPages: ScannedPage[] } | undefined;
   PageEditor: { draftPages: ScannedPage[] };
   PdfPreview: { documentId: string };
+  Settings: undefined;
+  ImportSummary: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -31,6 +35,16 @@ export default function RootNavigator() {
           name="PdfPreview"
           component={PdfPreviewScreen}
           options={{ title: "PDF" }}
+        />
+        <Stack.Screen
+          name="Settings"
+          component={SettingsScreen}
+          options={{ title: "설정" }}
+        />
+        <Stack.Screen
+          name="ImportSummary"
+          component={ImportSummaryScreen}
+          options={{ title: "기존 PDF 요약" }}
         />
       </Stack.Navigator>
     </NavigationContainer>

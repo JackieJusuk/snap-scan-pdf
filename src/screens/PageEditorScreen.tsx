@@ -13,7 +13,9 @@ import type { RootStackParamList } from "@/navigation/RootNavigator";
 import { ScannedPage } from "@/types";
 import { useDocuments } from "@/context/DocumentsContext";
 import { recognizeAllPages } from "@/services/ocr";
-import { buildSearchablePdf, persistPdf } from "@/services/pdfBuilder";
+import { buildSearchablePdf, buildSummaryPdf, persistPdf } from "@/services/pdfBuilder";
+import { summarizePagesForFileName } from "@/services/summarizer";
+import { summarizeDocumentWithAi } from "@/services/summaryAi";
 import PageThumbnail from "@/components/PageThumbnail";
 
 type Props = NativeStackScreenProps<RootStackParamList, "PageEditor">;
@@ -46,9 +48,30 @@ export default function PageEditorScreen({ navigation, route }: Props) {
       const title = `문서 ${new Date().toLocaleString("ko-KR")}`;
       const doc = await createDocument(title, pagesWithText);
 
+      // 파일 이름 자체에서 내용을 짐작할 수 있도록 OCR 텍스트 앞부분을 힌트로 쓰고,
+      // 동일한 힌트가 나올 수 있는 경우를 대비해 문서 ID 일부로 충돌을 방지한다.
+      const nameHint = summarizePagesForFileName(pagesWithText, title);
+      const idSuffix = doc.id.slice(0, 6);
+
       const tempPdfUri = await buildSearchablePdf(pagesWithText);
-      const finalPdfUri = await persistPdf(tempPdfUri, doc.id);
+      const finalPdfUri = await persistPdf(tempPdfUri, `${nameHint}_${idSuffix}`);
       await updateDocument(doc.id, { pdfUri: finalPdfUri });
+
+      // AI 요약 PDF는 별도 산출물이라 실패하더라도(키 미설정, 네트워크 오류 등) 원본
+      // 스캔 PDF 생성 자체는 막지 않는다.
+      try {
+        const summaryText = await summarizeDocumentWithAi(pagesWithText);
+        const tempSummaryPdfUri = await buildSummaryPdf(summaryText, title);
+        const finalSummaryPdfUri = await persistPdf(
+          tempSummaryPdfUri,
+          `${nameHint}_summary_${idSuffix}`
+        );
+        await updateDocument(doc.id, { summaryPdfUri: finalSummaryPdfUri });
+      } catch (summaryError) {
+        const message =
+          summaryError instanceof Error ? summaryError.message : String(summaryError);
+        Alert.alert("AI 요약 PDF 생성 건너뜀", message);
+      }
 
       navigation.reset({
         index: 1,

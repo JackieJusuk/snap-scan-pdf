@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useLayoutEffect } from "react";
 import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/RootNavigator";
@@ -9,6 +9,21 @@ type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
 export default function HomeScreen({ navigation }: Props) {
   const { documents, loading } = useDocuments();
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <View style={styles.headerButtons}>
+          <Pressable onPress={() => navigation.navigate("ImportSummary")} hitSlop={12}>
+            <Text style={styles.headerButtonText}>PDF 요약</Text>
+          </Pressable>
+          <Pressable onPress={() => navigation.navigate("Settings")} hitSlop={12}>
+            <Text style={styles.headerButtonText}>설정</Text>
+          </Pressable>
+        </View>
+      ),
+    });
+  }, [navigation]);
 
   return (
     <View style={styles.container}>
@@ -41,6 +56,16 @@ export default function HomeScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
+  headerButtons: {
+    flexDirection: "row",
+    gap: 16,
+  },
+  headerButtonText: {
+    color: "#2563eb",
+    fontSize: 15,
+    fontWeight: "600",
+    marginRight: 4,
+  },
   container: {
     flex: 1,
     backgroundColor: "#fff",

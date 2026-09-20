@@ -22,4 +22,6 @@ export interface ScannedDocument {
   pages: ScannedPage[];
   /** URI of the generated PDF, set once "PDF 생성" has run. */
   pdfUri?: string;
+  /** URI of the Claude 기반 AI 요약 PDF. 요약 생성이 실패했다면 설정되지 않는다. */
+  summaryPdfUri?: string;
 }

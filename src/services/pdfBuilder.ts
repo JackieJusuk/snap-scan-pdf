@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import * as FileSystem from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as Print from "expo-print";
@@ -107,4 +108,74 @@ export async function persistPdf(tempUri: string, fileName: string): Promise<str
   const destination = `${dir}${fileName}.pdf`;
   await FileSystem.copyAsync({ from: tempUri, to: destination });
   return destination;
+}
+
+/**
+ * 스캔 이미지가 아니라, Claude가 만든 요약 텍스트만 담은 별도의 PDF를 만든다. 원본
+ * 스캔 PDF(buildSearchablePdf)와는 독립된 파일이다.
+ */
+export async function buildSummaryPdf(summaryText: string, title: string): Promise<string> {
+  const escapedTitle = title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const escapedSummary = summaryText
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .split("\n")
+    .map((line) => `<p>${line || "&nbsp;"}</p>`)
+    .join("\n");
+
+  const html = `
+    <html>
+      <head>
+        <meta charset="utf-8" />
+        <style>
+          @page { size: A4; margin: 48pt; }
+          body { font-family: -apple-system, "Malgun Gothic", sans-serif; }
+          h1 { font-size: 18pt; margin-bottom: 4pt; }
+          .badge { color: #2563eb; font-size: 10pt; font-weight: 700; margin-bottom: 16pt; }
+          p { font-size: 12pt; line-height: 1.6; color: #111; margin-bottom: 10pt; }
+        </style>
+      </head>
+      <body>
+        <div class="badge">AI 요약 (Claude)</div>
+        <h1>${escapedTitle}</h1>
+        ${escapedSummary}
+      </body>
+    </html>
+  `;
+
+  const { uri } = await Print.printToFileAsync({ html, base64: false });
+  return uri;
+}
+
+export type SaveToDirectoryResult = "saved" | "cancelled" | "unsupported";
+
+/**
+ * 사용자가 직접 고른 폴더(Android의 Storage Access Framework 폴더 선택 다이얼로그)에
+ * PDF를 복사해 넣는다. iOS는 Expo가 이에 대응하는 폴더 선택 API를 제공하지 않으므로
+ * "unsupported"를 돌려주고, 호출 측에서 기존 공유 시트("파일 앱에 저장")로 안내한다.
+ */
+export async function saveToChosenDirectory(pdfUri: string): Promise<SaveToDirectoryResult> {
+  if (Platform.OS !== "android") {
+    return "unsupported";
+  }
+
+  const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+  if (!permissions.granted) {
+    return "cancelled";
+  }
+
+  const baseName = (pdfUri.split("/").pop() ?? "document.pdf").replace(/\.pdf$/i, "");
+  const base64 = await FileSystem.readAsStringAsync(pdfUri, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  const destinationUri = await FileSystem.StorageAccessFramework.createFileAsync(
+    permissions.directoryUri,
+    baseName,
+    "application/pdf"
+  );
+  await FileSystem.writeAsStringAsync(destinationUri, base64, {
+    encoding: FileSystem.EncodingType.Base64,
+  });
+  return "saved";
 }

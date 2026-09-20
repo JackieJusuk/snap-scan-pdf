@@ -14,6 +14,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     backgroundColor: "#ffffff",
   },
   assetBundlePatterns: ["**/*"],
+  plugins: ["expo-secure-store"],
   ios: {
     supportsTablet: true,
     bundleIdentifier: "com.snapscanpdf.app",
