@@ -13,29 +13,42 @@ export default function HomeScreen({ navigation }: Props) {
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
-        <View style={styles.headerButtons}>
-          <Pressable onPress={() => navigation.navigate("ImportSummary")} hitSlop={12}>
-            <Text style={styles.headerButtonText}>PDF 요약</Text>
-          </Pressable>
-          <Pressable onPress={() => navigation.navigate("Settings")} hitSlop={12}>
-            <Text style={styles.headerButtonText}>설정</Text>
-          </Pressable>
-        </View>
+        <Pressable onPress={() => navigation.navigate("Settings")} hitSlop={12}>
+          <Text style={styles.headerButtonText}>설정</Text>
+        </Pressable>
       ),
     });
   }, [navigation]);
 
   return (
     <View style={styles.container}>
+      <View style={styles.menu}>
+        <Pressable
+          style={[styles.menuCard, styles.menuCardSecondary]}
+          onPress={() => navigation.navigate("ImportSummary")}
+        >
+          <Text style={styles.menuCardTitle}>1. 기존 PDF를 읽어서 AI Summary PDF 만들기</Text>
+        </Pressable>
+        <Pressable
+          style={[styles.menuCard, styles.menuCardPrimary]}
+          onPress={() => navigation.navigate("Scan", undefined)}
+        >
+          <Text style={[styles.menuCardTitle, styles.menuCardTitleOnPrimary]}>
+            2. 사진찍고 PDF 만든후 AI Summary PDF 만들기
+          </Text>
+        </Pressable>
+      </View>
+
       {!loading && documents.length === 0 ? (
         <View style={styles.empty}>
           <Text style={styles.emptyText}>아직 저장된 문서가 없습니다.</Text>
-          <Text style={styles.emptySubText}>아래 버튼으로 첫 문서를 촬영해보세요.</Text>
+          <Text style={styles.emptySubText}>위 메뉴로 첫 문서를 만들어보세요.</Text>
         </View>
       ) : (
         <FlatList
           data={documents}
           keyExtractor={(doc) => doc.id}
+          contentContainerStyle={styles.listContent}
           renderItem={({ item }) => (
             <DocumentCard
               document={item}
@@ -44,22 +57,11 @@ export default function HomeScreen({ navigation }: Props) {
           )}
         />
       )}
-
-      <Pressable
-        style={styles.fab}
-        onPress={() => navigation.navigate("Scan", undefined)}
-      >
-        <Text style={styles.fabText}>+ 새로 촬영</Text>
-      </Pressable>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  headerButtons: {
-    flexDirection: "row",
-    gap: 16,
-  },
   headerButtonText: {
     color: "#2563eb",
     fontSize: 15,
@@ -69,6 +71,34 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#fff",
+  },
+  menu: {
+    padding: 16,
+    gap: 12,
+  },
+  menuCard: {
+    paddingVertical: 18,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  menuCardPrimary: {
+    backgroundColor: "#2563eb",
+  },
+  menuCardSecondary: {
+    backgroundColor: "#f1f5f9",
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: "#cbd5e1",
+  },
+  menuCardTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#111",
+  },
+  menuCardTitleOnPrimary: {
+    color: "#fff",
+  },
+  listContent: {
+    paddingBottom: 24,
   },
   empty: {
     flex: 1,
@@ -85,24 +115,5 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontSize: 13,
     color: "#888",
-  },
-  fab: {
-    position: "absolute",
-    right: 20,
-    bottom: 28,
-    backgroundColor: "#2563eb",
-    paddingVertical: 14,
-    paddingHorizontal: 22,
-    borderRadius: 30,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  fabText: {
-    color: "#fff",
-    fontSize: 15,
-    fontWeight: "700",
   },
 });
