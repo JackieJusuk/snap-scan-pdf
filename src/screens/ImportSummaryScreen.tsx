@@ -47,9 +47,14 @@ export default function ImportSummaryScreen() {
   // 직접 선택(Drive 등)한 항목과, 폴더 자동 저장이 실패한 항목이 여기 함께 쌓인다.
   const [results, setResults] = useState<SummaryResult[]>([]);
 
+  // 지금 사용 중인 쪽 버튼만 채운 파란색으로, 나머지는 파란 테두리로 — 헤더의 카테고리
+  // 칩과 같은 규칙(선택됨=채움, 선택 안 됨=테두리)을 이 화면의 두 진입 버튼에도 적용.
+  const [activeSection, setActiveSection] = useState<"local" | "cloud" | null>(null);
+
   const busy = progress !== null;
 
   async function handlePickFolder() {
+    setActiveSection("local");
     const uri = await pickPdfDirectory();
     if (!uri) return;
     setDirectoryUri(uri);
@@ -123,6 +128,7 @@ export default function ImportSummaryScreen() {
   }
 
   async function handlePickFiles() {
+    setActiveSection("cloud");
     const pickResult = await DocumentPicker.getDocumentAsync({
       type: "application/pdf",
       multiple: true,
@@ -202,11 +208,16 @@ export default function ImportSummaryScreen() {
             자동 저장됩니다.
           </Text>
           <Pressable
-            style={[styles.button, styles.secondaryButton]}
+            style={[
+              styles.button,
+              activeSection === "local" ? styles.primaryButton : styles.outlineButton,
+            ]}
             onPress={handlePickFolder}
             disabled={busy}
           >
-            <Text style={styles.secondaryButtonText}>
+            <Text
+              style={activeSection === "local" ? styles.primaryButtonText : styles.outlineButtonText}
+            >
               {directoryUri ? "다른 폴더 선택" : "폴더 선택"}
             </Text>
           </Pressable>
@@ -256,11 +267,18 @@ export default function ImportSummaryScreen() {
           경우가 많아, 요약이 끝나면 각각 공유하거나 저장할 폴더를 직접 골라주세요.
         </Text>
         <Pressable
-          style={[styles.button, styles.primaryButton]}
+          style={[
+            styles.button,
+            activeSection === "cloud" ? styles.primaryButton : styles.outlineButton,
+          ]}
           onPress={handlePickFiles}
           disabled={busy}
         >
-          <Text style={styles.primaryButtonText}>PDF 파일 선택 (여러 개 가능)</Text>
+          <Text
+            style={activeSection === "cloud" ? styles.primaryButtonText : styles.outlineButtonText}
+          >
+            PDF 파일 선택 (여러 개 가능)
+          </Text>
         </Pressable>
       </View>
 
@@ -404,6 +422,16 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     color: "#334155",
     fontWeight: "600",
+    fontSize: 15,
+  },
+  outlineButton: {
+    backgroundColor: "#fff",
+    borderWidth: 1.5,
+    borderColor: "#2563eb",
+  },
+  outlineButtonText: {
+    color: "#2563eb",
+    fontWeight: "700",
     fontSize: 15,
   },
 });
