@@ -3,6 +3,7 @@ import * as FileSystem from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
 import * as Print from "expo-print";
 import { ScannedPage } from "@/types";
+import { AiDocumentResult } from "@/services/summaryAi";
 
 const PAGE_WIDTH_PT = 595; // A4 @ 72dpi
 const PAGE_HEIGHT_PT = 842;
@@ -114,35 +115,45 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-// Claude에게 "1. 2. 3. ..." 형식으로 번호를 매겨 요약하도록 요청하므로(summaryAi.ts의
-// SUMMARY_INSTRUCTION), 그 번호를 텍스트 그대로 두지 않고 번호/본문을 나눠 정렬된
-// 목록처럼 렌더링해 가독성을 높인다. 혹시 모델이 번호 없이 응답하면 일반 문단으로
-// 그대로 표시된다.
+// Claude에게 "1. 2. 3. ..." 형식으로 번호를 매겨 요약/예상문제를 만들도록 요청하므로
+// (summaryAi.ts의 SUMMARY_INSTRUCTION), 그 번호를 텍스트 그대로 두지 않고 번호/본문을
+// 나눠 정렬된 목록처럼 렌더링해 가독성을 높인다. 혹시 모델이 번호 없이 응답하면 일반
+// 문단으로 그대로 표시된다.
 const NUMBERED_LINE = /^(\d+)[.)]\s*(.*)$/;
+// 예상문제 각 항목 다음 줄의 "정답: ..." 은 문제와 구분되도록 별도 스타일로 표시한다.
+const ANSWER_LINE = /^정답\s*[:：]\s*(.*)$/;
 
 function renderSummaryLine(rawLine: string): string {
-  const line = escapeHtml(rawLine);
-  const match = line.match(NUMBERED_LINE);
-  if (match) {
-    const [, number, rest] = match;
+  const numberedMatch = rawLine.match(NUMBERED_LINE);
+  if (numberedMatch) {
+    const [, number, rest] = numberedMatch;
     return `<div class="item"><span class="item-number">${number}.</span><span class="item-text">${
-      rest || "&nbsp;"
+      escapeHtml(rest) || "&nbsp;"
     }</span></div>`;
   }
-  return `<p>${line}</p>`;
+  const answerMatch = rawLine.match(ANSWER_LINE);
+  if (answerMatch) {
+    return `<p class="answer">정답: ${escapeHtml(answerMatch[1])}</p>`;
+  }
+  return `<p>${escapeHtml(rawLine)}</p>`;
 }
 
-/**
- * 스캔 이미지가 아니라, Claude가 만든 요약 텍스트만 담은 별도의 PDF를 만든다. 원본
- * 스캔 PDF(buildSearchablePdf)와는 독립된 파일이다.
- */
-export async function buildSummaryPdf(summaryText: string, title: string): Promise<string> {
-  const escapedTitle = escapeHtml(title);
-  const summaryHtml = summaryText
+function renderNumberedSection(text: string): string {
+  return text
     .split("\n")
     .filter((line) => line.trim().length > 0)
     .map(renderSummaryLine)
     .join("\n");
+}
+
+/**
+ * 스캔 이미지가 아니라, Claude가 만든 요약(및 교과서로 판단된 경우 예상문제) 텍스트만
+ * 담은 별도의 PDF를 만든다. 원본 스캔 PDF(buildSearchablePdf)와는 독립된 파일이다.
+ */
+export async function buildSummaryPdf(result: AiDocumentResult, title: string): Promise<string> {
+  const escapedTitle = escapeHtml(title);
+  const summaryHtml = renderNumberedSection(result.summary);
+  const questionsHtml = result.questions ? renderNumberedSection(result.questions) : null;
 
   const html = `
     <html>
@@ -152,17 +163,20 @@ export async function buildSummaryPdf(summaryText: string, title: string): Promi
           @page { size: A4; margin: 48pt; }
           body { font-family: -apple-system, "Malgun Gothic", sans-serif; }
           h1 { font-size: 18pt; margin-bottom: 4pt; }
+          h2 { font-size: 14pt; margin-top: 28pt; margin-bottom: 12pt; color: #111; }
           .badge { color: #2563eb; font-size: 10pt; font-weight: 700; margin-bottom: 16pt; }
           p { font-size: 12pt; line-height: 1.6; color: #111; margin-bottom: 10pt; }
           .item { display: flex; margin-bottom: 10pt; }
           .item-number { width: 22pt; flex-shrink: 0; font-size: 12pt; font-weight: 700; color: #2563eb; }
           .item-text { flex: 1; font-size: 12pt; line-height: 1.6; color: #111; }
+          .answer { margin-top: -4pt; margin-left: 22pt; font-size: 11pt; color: #64748b; }
         </style>
       </head>
       <body>
         <div class="badge">AI 요약 (Claude)</div>
         <h1>${escapedTitle}</h1>
         ${summaryHtml}
+        ${questionsHtml ? `<h2>예상 문제</h2>${questionsHtml}` : ""}
       </body>
     </html>
   `;

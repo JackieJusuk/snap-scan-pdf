@@ -61,8 +61,8 @@ export default function PageEditorScreen({ navigation, route }: Props) {
       // AI 요약 PDF는 별도 산출물이라 실패하더라도(키 미설정, 네트워크 오류 등) 원본
       // 스캔 PDF 생성 자체는 막지 않는다.
       try {
-        const summaryText = await summarizeDocumentWithAi(pagesWithText);
-        const tempSummaryPdfUri = await buildSummaryPdf(summaryText, title);
+        const aiResult = await summarizeDocumentWithAi(pagesWithText);
+        const tempSummaryPdfUri = await buildSummaryPdf(aiResult, title);
         const finalSummaryPdfUri = await persistPdf(
           tempSummaryPdfUri,
           `${nameHint}_summary_${idSuffix}`

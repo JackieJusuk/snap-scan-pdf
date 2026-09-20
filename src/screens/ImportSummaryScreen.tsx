@@ -24,6 +24,7 @@ import {
 interface SummaryResult {
   uri: string;
   sourceName: string;
+  hasQuestions: boolean;
 }
 
 interface Progress {
@@ -96,15 +97,19 @@ export default function ImportSummaryScreen() {
       const file = targets[i];
       try {
         const base64 = await readAsBase64(file.uri);
-        const summaryText = await summarizePdfDocumentWithAi(base64);
-        const tempSummaryUri = await buildSummaryPdf(summaryText, file.name.replace(/\.pdf$/i, ""));
+        const aiResult = await summarizePdfDocumentWithAi(base64);
+        const tempSummaryUri = await buildSummaryPdf(aiResult, file.name.replace(/\.pdf$/i, ""));
         try {
           await saveSummaryNextToOriginal(directoryUri, file.name, tempSummaryUri);
           savedCount += 1;
         } catch {
           // 이 폴더(예: Google Drive)에는 자동 저장이 안 됨 — 요약 자체는 버리지
           // 않고 대기열로 넘겨서 공유/다른 폴더 저장으로 이어갈 수 있게 한다.
-          needsManualSave.push({ uri: tempSummaryUri, sourceName: file.name });
+          needsManualSave.push({
+            uri: tempSummaryUri,
+            sourceName: file.name,
+            hasQuestions: aiResult.questions !== null,
+          });
         }
       } catch {
         failedCount += 1;
@@ -144,9 +149,13 @@ export default function ImportSummaryScreen() {
       const asset = assets[i];
       try {
         const base64 = await readAsBase64(asset.uri);
-        const summaryText = await summarizePdfDocumentWithAi(base64);
-        const tempSummaryUri = await buildSummaryPdf(summaryText, asset.name.replace(/\.pdf$/i, ""));
-        newResults.push({ uri: tempSummaryUri, sourceName: asset.name });
+        const aiResult = await summarizePdfDocumentWithAi(base64);
+        const tempSummaryUri = await buildSummaryPdf(aiResult, asset.name.replace(/\.pdf$/i, ""));
+        newResults.push({
+          uri: tempSummaryUri,
+          sourceName: asset.name,
+          hasQuestions: aiResult.questions !== null,
+        });
       } catch {
         failedCount += 1;
       }
@@ -284,7 +293,10 @@ export default function ImportSummaryScreen() {
 
       {results.map((item) => (
         <View key={item.uri} style={styles.resultBlock}>
-          <Text style={styles.resultText}>"{item.sourceName}" 요약이 준비됐습니다.</Text>
+          <Text style={styles.resultText}>
+            "{item.sourceName}" 요약이 준비됐습니다.
+            {item.hasQuestions ? " (교과서로 판단되어 예상문제 포함)" : ""}
+          </Text>
           <View style={styles.resultActions}>
             <Pressable
               style={[styles.button, styles.primaryButton]}
