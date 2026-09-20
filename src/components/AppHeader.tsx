@@ -107,7 +107,9 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 6,
     borderRadius: 8,
-    backgroundColor: "#f1f5f9",
+    backgroundColor: "#fff",
+    borderWidth: 1.5,
+    borderColor: "#2563eb",
     alignItems: "center",
   },
   categoryChipActive: {
@@ -116,7 +118,7 @@ const styles = StyleSheet.create({
   categoryText: {
     fontSize: 11,
     fontWeight: "600",
-    color: "#475569",
+    color: "#2563eb",
   },
   categoryTextActive: {
     color: "#fff",

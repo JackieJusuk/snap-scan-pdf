@@ -195,7 +195,7 @@ export default function ImportSummaryScreen() {
 
       {Platform.OS === "android" && (
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>폴더에서 선택 (같은 폴더에 자동 저장)</Text>
+          <Text style={styles.sectionTitle}>로컬 폴더에서 선택</Text>
           <Text style={styles.helpText}>
             휴대폰/저장소의 폴더를 고르면 그 안의 PDF 목록을 보여줍니다. 여러 개를
             체크한 뒤 한 번에 요약할 수 있고, 같은 폴더에 "파일명_summary.pdf"로
@@ -249,7 +249,7 @@ export default function ImportSummaryScreen() {
       )}
 
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>파일에서 직접 선택 (Google Drive, Dropbox 등)</Text>
+        <Text style={styles.sectionTitle}>클라우드 드라이브에서 선택</Text>
         <Text style={styles.helpText}>
           기기에 연결된 Google Drive 등 클라우드에 있는 PDF도 여러 개 골라 한 번에
           요약할 수 있습니다. 클라우드 파일은 원래 위치에 자동 저장할 권한이 없는
