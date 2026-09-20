@@ -14,7 +14,7 @@ import { ScannedPage } from "@/types";
 import { useDocuments } from "@/context/DocumentsContext";
 import { recognizeAllPages } from "@/services/ocr";
 import { buildSearchablePdf, buildSummaryPdf, persistPdf } from "@/services/pdfBuilder";
-import { summarizePagesForFileName } from "@/services/summarizer";
+import { deriveDocumentTitle, summarizePagesForFileName } from "@/services/summarizer";
 import { summarizeDocumentWithAi } from "@/services/summaryAi";
 import PageThumbnail from "@/components/PageThumbnail";
 
@@ -45,7 +45,8 @@ export default function PageEditorScreen({ navigation, route }: Props) {
     setProcessing(true);
     try {
       const pagesWithText = await recognizeAllPages(pages);
-      const title = `문서 ${new Date().toLocaleString("ko-KR")}`;
+      const fallbackTitle = `문서 ${new Date().toLocaleString("ko-KR")}`;
+      const title = deriveDocumentTitle(pagesWithText, fallbackTitle);
       const doc = await createDocument(title, pagesWithText);
 
       // 파일 이름 자체에서 내용을 짐작할 수 있도록 OCR 텍스트 앞부분을 힌트로 쓰고,

@@ -60,15 +60,29 @@ export default function ImportSummaryScreen() {
   async function handleSummarizeInFolder(file: PickedPdfFile) {
     if (!directoryUri) return;
     setBusyName(file.name);
+    setResult(null);
+    let tempSummaryUri: string | null = null;
     try {
       const base64 = await readAsBase64(file.uri);
       const summaryText = await summarizePdfDocumentWithAi(base64);
-      const tempSummaryUri = await buildSummaryPdf(summaryText, file.name.replace(/\.pdf$/i, ""));
+      tempSummaryUri = await buildSummaryPdf(summaryText, file.name.replace(/\.pdf$/i, ""));
       await saveSummaryNextToOriginal(directoryUri, file.name, tempSummaryUri);
       Alert.alert("요약 완료", `"${file.name}"과 같은 폴더에 요약 PDF를 저장했습니다.`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      Alert.alert("요약 실패", message);
+      if (tempSummaryUri) {
+        // 요약 자체는 만들어졌는데 "이 폴더에 저장"만 실패한 경우 — 예를 들어 Google
+        // Drive처럼 폴더 선택(SAF)으로는 조회는 되지만 새 파일 쓰기는 막혀 있는
+        // 폴더가 실제로 있다. 이미 만든 요약을 버리지 않고, 아래 공유/다른 폴더
+        // 저장 버튼으로 이어갈 수 있게 결과 상태에 담아둔다.
+        setResult({ uri: tempSummaryUri, sourceName: file.name });
+        Alert.alert(
+          "이 폴더에는 저장할 수 없음",
+          "선택한 폴더는 앱이 직접 파일을 쓸 수 없는 위치입니다(Google Drive 폴더 등에서 자주 발생). 아래 \"공유/저장\" 또는 \"폴더 선택해서 저장\"으로 저장해주세요."
+        );
+      } else {
+        const message = error instanceof Error ? error.message : String(error);
+        Alert.alert("요약 실패", message);
+      }
     } finally {
       setBusyName(null);
     }
@@ -170,26 +184,26 @@ export default function ImportSummaryScreen() {
             <Text style={styles.primaryButtonText}>PDF 파일 선택</Text>
           )}
         </Pressable>
-
-        {result && (
-          <View style={styles.resultBlock}>
-            <Text style={styles.resultText}>"{result.sourceName}" 요약이 준비됐습니다.</Text>
-            <View style={styles.resultActions}>
-              <Pressable style={[styles.button, styles.primaryButton]} onPress={handleShareResult}>
-                <Text style={styles.primaryButtonText}>공유/저장</Text>
-              </Pressable>
-              {Platform.OS === "android" && (
-                <Pressable
-                  style={[styles.button, styles.secondaryButton]}
-                  onPress={handleSaveResultToFolder}
-                >
-                  <Text style={styles.secondaryButtonText}>폴더 선택해서 저장</Text>
-                </Pressable>
-              )}
-            </View>
-          </View>
-        )}
       </View>
+
+      {result && (
+        <View style={styles.resultBlock}>
+          <Text style={styles.resultText}>"{result.sourceName}" 요약이 준비됐습니다.</Text>
+          <View style={styles.resultActions}>
+            <Pressable style={[styles.button, styles.primaryButton]} onPress={handleShareResult}>
+              <Text style={styles.primaryButtonText}>공유/저장</Text>
+            </Pressable>
+            {Platform.OS === "android" && (
+              <Pressable
+                style={[styles.button, styles.secondaryButton]}
+                onPress={handleSaveResultToFolder}
+              >
+                <Text style={styles.secondaryButtonText}>폴더 선택해서 저장</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+      )}
     </ScrollView>
   );
 }

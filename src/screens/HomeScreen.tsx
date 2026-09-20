@@ -1,15 +1,11 @@
 import React, { useLayoutEffect } from "react";
-import { FlatList, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/RootNavigator";
-import { useDocuments } from "@/context/DocumentsContext";
-import DocumentCard from "@/components/DocumentCard";
 
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
 export default function HomeScreen({ navigation }: Props) {
-  const { documents, loading } = useDocuments();
-
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
@@ -37,26 +33,13 @@ export default function HomeScreen({ navigation }: Props) {
             2. 사진찍고 PDF 만든후 AI Summary PDF 만들기
           </Text>
         </Pressable>
+        <Pressable
+          style={[styles.menuCard, styles.menuCardSecondary]}
+          onPress={() => navigation.navigate("MyDocuments")}
+        >
+          <Text style={styles.menuCardTitle}>3. 기존 작업내용</Text>
+        </Pressable>
       </View>
-
-      {!loading && documents.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>아직 저장된 문서가 없습니다.</Text>
-          <Text style={styles.emptySubText}>위 메뉴로 첫 문서를 만들어보세요.</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={documents}
-          keyExtractor={(doc) => doc.id}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => (
-            <DocumentCard
-              document={item}
-              onPress={() => navigation.navigate("PdfPreview", { documentId: item.id })}
-            />
-          )}
-        />
-      )}
     </View>
   );
 }
@@ -96,24 +79,5 @@ const styles = StyleSheet.create({
   },
   menuCardTitleOnPrimary: {
     color: "#fff",
-  },
-  listContent: {
-    paddingBottom: 24,
-  },
-  empty: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-  },
-  emptyText: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
-  },
-  emptySubText: {
-    marginTop: 6,
-    fontSize: 13,
-    color: "#888",
   },
 });

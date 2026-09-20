@@ -41,13 +41,16 @@ PDF로 만들어주는 React Native(Expo) 모바일 앱입니다. iOS/Android �
 
 ## 화면 구성
 
-1. **내 문서(Home)** — 저장된 문서 목록, "+ 새로 촬영" 버튼, 우측 상단 "PDF 요약"(기존 PDF
-   가져와 요약)/"설정"(API 키 등록)
+1. **홈(Home)** — 화면 제목 "Scan-PDF-Summary". 3개 메뉴만 제공: "① 기존 PDF 요약",
+   "② 촬영해서 PDF+요약 만들기", "③ 기존 작업내용". 우측 상단 "설정"(API 키 등록)
 2. **촬영(Scan)** — 네이티브 스캐너 실행, 촬영 즉시 편집 화면으로 이동
-3. **페이지 편집(PageEditor)** — 페이지 순서 변경/삭제/추가, "PDF 생성" 실행(OCR → PDF 빌드)
+3. **페이지 편집(PageEditor)** — 페이지 순서 변경/삭제/추가, "PDF 생성" 실행(OCR → PDF 빌드,
+   OCR 텍스트 첫 줄로 문서 제목 자동 생성)
 4. **PDF(PdfPreview)** — 제목 수정, 원본/AI 요약 PDF 각각 공유·폴더 저장, 삭제
 5. **설정(Settings)** — Anthropic API 키 등록/삭제
 6. **기존 PDF 요약(ImportSummary)** — 카메라 없이 기존 PDF를 골라 AI 요약 PDF 생성
+   (로컬 폴더 탐색 또는 Google Drive 등 클라우드 파일 선택)
+7. **기존 작업내용(MyDocuments)** — 지금까지 촬영/생성한 문서 목록 (예전 홈 화면의 목록)
 
 ## 설치 및 실행
 
@@ -106,7 +109,7 @@ src/
     apiKeyStore.ts        # Anthropic API 키 SecureStore 저장
     storage.ts             # AsyncStorage 영속화
   context/            # DocumentsContext (문서 목록 상태 관리)
-  navigation/          # RootNavigator (Home/Scan/PageEditor/PdfPreview/Settings)
-  screens/             # 5개 화면
+  navigation/          # RootNavigator (Home/Scan/PageEditor/PdfPreview/Settings/ImportSummary/MyDocuments)
+  screens/             # 7개 화면
   components/          # DocumentCard, PageThumbnail
 ```
