@@ -110,18 +110,38 @@ export async function persistPdf(tempUri: string, fileName: string): Promise<str
   return destination;
 }
 
+function escapeHtml(text: string): string {
+  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+// Claude에게 "1. 2. 3. ..." 형식으로 번호를 매겨 요약하도록 요청하므로(summaryAi.ts의
+// SUMMARY_INSTRUCTION), 그 번호를 텍스트 그대로 두지 않고 번호/본문을 나눠 정렬된
+// 목록처럼 렌더링해 가독성을 높인다. 혹시 모델이 번호 없이 응답하면 일반 문단으로
+// 그대로 표시된다.
+const NUMBERED_LINE = /^(\d+)[.)]\s*(.*)$/;
+
+function renderSummaryLine(rawLine: string): string {
+  const line = escapeHtml(rawLine);
+  const match = line.match(NUMBERED_LINE);
+  if (match) {
+    const [, number, rest] = match;
+    return `<div class="item"><span class="item-number">${number}.</span><span class="item-text">${
+      rest || "&nbsp;"
+    }</span></div>`;
+  }
+  return `<p>${line}</p>`;
+}
+
 /**
  * 스캔 이미지가 아니라, Claude가 만든 요약 텍스트만 담은 별도의 PDF를 만든다. 원본
  * 스캔 PDF(buildSearchablePdf)와는 독립된 파일이다.
  */
 export async function buildSummaryPdf(summaryText: string, title: string): Promise<string> {
-  const escapedTitle = title.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  const escapedSummary = summaryText
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
+  const escapedTitle = escapeHtml(title);
+  const summaryHtml = summaryText
     .split("\n")
-    .map((line) => `<p>${line || "&nbsp;"}</p>`)
+    .filter((line) => line.trim().length > 0)
+    .map(renderSummaryLine)
     .join("\n");
 
   const html = `
@@ -134,12 +154,15 @@ export async function buildSummaryPdf(summaryText: string, title: string): Promi
           h1 { font-size: 18pt; margin-bottom: 4pt; }
           .badge { color: #2563eb; font-size: 10pt; font-weight: 700; margin-bottom: 16pt; }
           p { font-size: 12pt; line-height: 1.6; color: #111; margin-bottom: 10pt; }
+          .item { display: flex; margin-bottom: 10pt; }
+          .item-number { width: 22pt; flex-shrink: 0; font-size: 12pt; font-weight: 700; color: #2563eb; }
+          .item-text { flex: 1; font-size: 12pt; line-height: 1.6; color: #111; }
         </style>
       </head>
       <body>
         <div class="badge">AI 요약 (Claude)</div>
         <h1>${escapedTitle}</h1>
-        ${escapedSummary}
+        ${summaryHtml}
       </body>
     </html>
   `;

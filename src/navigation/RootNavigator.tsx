@@ -9,6 +9,7 @@ import PdfPreviewScreen from "@/screens/PdfPreviewScreen";
 import SettingsScreen from "@/screens/SettingsScreen";
 import ImportSummaryScreen from "@/screens/ImportSummaryScreen";
 import MyDocumentsScreen from "@/screens/MyDocumentsScreen";
+import AppHeader from "@/components/AppHeader";
 
 export type RootStackParamList = {
   Home: undefined;
@@ -25,38 +26,17 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 export default function RootNavigator() {
   return (
     <NavigationContainer>
-      <Stack.Navigator initialRouteName="Home">
-        <Stack.Screen
-          name="Home"
-          component={HomeScreen}
-          options={{ title: "Scan-PDF-Summary" }}
-        />
-        <Stack.Screen name="Scan" component={ScanScreen} options={{ title: "촬영" }} />
-        <Stack.Screen
-          name="PageEditor"
-          component={PageEditorScreen}
-          options={{ title: "페이지 편집" }}
-        />
-        <Stack.Screen
-          name="PdfPreview"
-          component={PdfPreviewScreen}
-          options={{ title: "PDF" }}
-        />
-        <Stack.Screen
-          name="Settings"
-          component={SettingsScreen}
-          options={{ title: "설정" }}
-        />
-        <Stack.Screen
-          name="ImportSummary"
-          component={ImportSummaryScreen}
-          options={{ title: "기존 PDF 요약" }}
-        />
-        <Stack.Screen
-          name="MyDocuments"
-          component={MyDocumentsScreen}
-          options={{ title: "기존 작업내용" }}
-        />
+      <Stack.Navigator
+        initialRouteName="Home"
+        screenOptions={{ header: (props) => <AppHeader {...props} /> }}
+      >
+        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="Scan" component={ScanScreen} />
+        <Stack.Screen name="PageEditor" component={PageEditorScreen} />
+        <Stack.Screen name="PdfPreview" component={PdfPreviewScreen} />
+        <Stack.Screen name="Settings" component={SettingsScreen} />
+        <Stack.Screen name="ImportSummary" component={ImportSummaryScreen} />
+        <Stack.Screen name="MyDocuments" component={MyDocumentsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

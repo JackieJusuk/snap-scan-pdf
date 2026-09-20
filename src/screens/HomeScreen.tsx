@@ -1,4 +1,4 @@
-import React, { useLayoutEffect } from "react";
+import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "@/navigation/RootNavigator";
@@ -6,16 +6,6 @@ import type { RootStackParamList } from "@/navigation/RootNavigator";
 type Props = NativeStackScreenProps<RootStackParamList, "Home">;
 
 export default function HomeScreen({ navigation }: Props) {
-  useLayoutEffect(() => {
-    navigation.setOptions({
-      headerRight: () => (
-        <Pressable onPress={() => navigation.navigate("Settings")} hitSlop={12}>
-          <Text style={styles.headerButtonText}>설정</Text>
-        </Pressable>
-      ),
-    });
-  }, [navigation]);
-
   return (
     <View style={styles.container}>
       <View style={styles.menu}>
@@ -45,12 +35,6 @@ export default function HomeScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  headerButtonText: {
-    color: "#2563eb",
-    fontSize: 15,
-    fontWeight: "600",
-    marginRight: 4,
-  },
   container: {
     flex: 1,
     backgroundColor: "#fff",

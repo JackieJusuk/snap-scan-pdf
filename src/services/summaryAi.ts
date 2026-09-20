@@ -9,8 +9,11 @@ const MODEL = "claude-opus-5";
 // 무엇에 대한 문서인지 요약하기에 부족하지 않다.
 const MAX_INPUT_CHARS = 20000;
 
-const SUMMARY_INSTRUCTION =
-  "이 문서의 핵심 내용을 한국어로 3~5문장으로 간결하게 요약해주세요. 요약문 외의 다른 말은 하지 마세요.";
+const SUMMARY_INSTRUCTION = [
+  "이 문서의 핵심 내용을 한국어로 요약해주세요. 가독성 있게 핵심 항목별로 번호를 매겨서",
+  "(1. 2. 3. ...) 작성하고, 각 항목은 한두 문장으로 간결하게 써주세요. 3~6개 항목이면",
+  "충분합니다. 요약문 외의 다른 말(서론, 맺음말 등)은 하지 마세요.",
+].join(" ");
 
 export class MissingApiKeyError extends Error {
   constructor() {
