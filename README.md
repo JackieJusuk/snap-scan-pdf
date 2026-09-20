@@ -61,10 +61,10 @@ eas build --profile development --platform android
 
 ## 알려진 제한 사항
 
-- **밝기/대비 자동 보정은 스캐너 플러그인의 기본 처리에 의존**합니다. 별도의 색상 보정
-  파이프라인(예: 그레이스케일/대비 강화 필터)은 포함되어 있지 않으며, 추가하려면
-  `expo-gl` 또는 `@shopify/react-native-skia` 기반 이미지 필터 구현이 필요합니다
-  (`src/services/` 에 필터 서비스를 추가하는 방식을 권장).
+- **문서 스캔 모드 보정**: `@shopify/react-native-skia` 기반의 `src/services/imageEnhancer.ts`가
+  흑백 변환 후 지역 평균(블러) 대비 밝기를 비교하는 적응형 이진화 방식으로 종이
+  그림자·구겨짐 얼룩을 줄이고 글씨 가독성을 높입니다. `GAIN`/`BLUR_RADIUS_RATIO`
+  상수는 실제 스캔본을 보면서 조정이 필요할 수 있습니다.
 - OCR은 기기 내(온디바이스) 처리이며 언어 인식 정확도는 ML Kit의 기본 Latin 스크립트
   모델을 사용합니다. 한글 인식률이 낮다면 `@react-native-ml-kit/text-recognition`의
   스크립트 옵션(Korean 등)을 확인하세요.

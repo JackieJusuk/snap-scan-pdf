@@ -28,7 +28,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     package: "com.snapscanpdf.app",
     adaptiveIcon: {
       foregroundImage: "./assets/adaptive-icon.png",
-      backgroundColor: "#ffffff",
+      backgroundColor: "#2563eb",
     },
     permissions: ["CAMERA", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"],
   },

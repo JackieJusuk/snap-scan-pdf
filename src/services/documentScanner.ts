@@ -2,6 +2,7 @@ import { Image } from "react-native";
 import DocumentScanner from "react-native-document-scanner-plugin";
 import { generateId } from "@/utils/id";
 import { ScannedPage } from "@/types";
+import { enhanceDocumentImage } from "@/services/imageEnhancer";
 
 function getImageSize(uri: string): Promise<{ width: number; height: number }> {
   return new Promise((resolve, reject) => {
@@ -28,7 +29,10 @@ export async function scanPages(): Promise<ScannedPage[]> {
   }
 
   const pages = await Promise.all(
-    scannedImages.map(async (imageUri): Promise<ScannedPage> => {
+    scannedImages.map(async (rawImageUri): Promise<ScannedPage> => {
+      // 종이 그림자/구겨짐 얼룩을 줄이고 글씨 가독성을 높이는 문서 스캔 모드 필터를
+      // 적용한다. 이후 미리보기·OCR·PDF 삽입이 모두 이 보정된 이미지를 사용한다.
+      const imageUri = await enhanceDocumentImage(rawImageUri);
       const { width, height } = await getImageSize(imageUri);
       return { id: generateId(), imageUri, width, height };
     })
