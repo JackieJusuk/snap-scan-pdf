@@ -1,9 +1,9 @@
 node_modules/
-.expo/
 dist/
-web-build/
 android/
 ios/
+*.ait
+.granite/
 *.jks
 *.p8
 *.p12

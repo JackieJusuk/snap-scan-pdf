@@ -6,26 +6,16 @@ interface Props {
   page: ScannedPage;
   index: number;
   onDelete: () => void;
-  onMoveUp?: () => void;
-  onMoveDown?: () => void;
 }
 
-export default function PageThumbnail({ page, index, onDelete, onMoveUp, onMoveDown }: Props) {
+export default function PageThumbnail({ page, index, onDelete }: Props) {
   return (
     <View style={styles.container}>
-      <Image source={{ uri: page.imageUri }} style={styles.image} resizeMode="cover" />
+      <Image source={{ uri: `data:image/jpeg;base64,${page.dataUri}` }} style={styles.image} resizeMode="cover" />
       <Text style={styles.pageNumber}>{index + 1}</Text>
-      <View style={styles.actions}>
-        <Pressable onPress={onMoveUp} disabled={!onMoveUp} hitSlop={8}>
-          <Text style={[styles.actionText, !onMoveUp && styles.actionDisabled]}>▲</Text>
-        </Pressable>
-        <Pressable onPress={onMoveDown} disabled={!onMoveDown} hitSlop={8}>
-          <Text style={[styles.actionText, !onMoveDown && styles.actionDisabled]}>▼</Text>
-        </Pressable>
-        <Pressable onPress={onDelete} hitSlop={8}>
-          <Text style={styles.deleteText}>삭제</Text>
-        </Pressable>
-      </View>
+      <Pressable onPress={onDelete} hitSlop={8}>
+        <Text style={styles.deleteText}>삭제</Text>
+      </Pressable>
     </View>
   );
 }
@@ -47,20 +37,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#555",
   },
-  actions: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 4,
-    paddingHorizontal: 4,
-  },
-  actionText: {
-    fontSize: 14,
-    color: "#2563eb",
-  },
-  actionDisabled: {
-    color: "#ccc",
-  },
   deleteText: {
+    marginTop: 2,
+    textAlign: "center",
     fontSize: 12,
     color: "#dc2626",
   },

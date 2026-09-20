@@ -1,8 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { Alert, Linking, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from "react-native";
+import { createRoute, openURL } from "@granite-js/react-native";
 import { clearAnthropicApiKey, getAnthropicApiKey, setAnthropicApiKey } from "@/services/apiKeyStore";
 
-export default function SettingsScreen() {
+export const Route = createRoute("/settings", {
+  validateParams: (params) => params,
+  component: SettingsPage,
+});
+
+function SettingsPage() {
   const [apiKey, setApiKeyInput] = useState("");
   const [hasSavedKey, setHasSavedKey] = useState(false);
 
@@ -18,7 +24,7 @@ export default function SettingsScreen() {
     await setAnthropicApiKey(apiKey.trim());
     setApiKeyInput("");
     setHasSavedKey(true);
-    Alert.alert("저장 완료", "API 키가 기기에 안전하게 저장되었습니다.");
+    Alert.alert("저장 완료", "API 키가 이 기기에 저장되었습니다.");
   }
 
   async function handleClear() {
@@ -31,8 +37,9 @@ export default function SettingsScreen() {
     <View style={styles.container}>
       <Text style={styles.label}>Anthropic API 키</Text>
       <Text style={styles.helpText}>
-        문서 스캔 시 AI 요약 PDF를 생성하는 데 사용됩니다. 키는 이 기기에만 안전하게
-        저장되며, 요약을 요청할 때만 Anthropic 서버로 전송됩니다.
+        문서를 스캔한 뒤 AI 요약 PDF를 만드는 데 사용됩니다. 앱인토스 환경에는
+        expo-secure-store 같은 하드웨어 보안 저장소가 없어서, 일반 로컬 저장소(토스
+        앱을 삭제하면 함께 삭제됨)에 저장됩니다.
       </Text>
       <TextInput
         style={styles.input}
@@ -54,7 +61,7 @@ export default function SettingsScreen() {
         </Pressable>
       )}
 
-      <Pressable onPress={() => Linking.openURL("https://console.anthropic.com/settings/keys")}>
+      <Pressable onPress={() => openURL("https://console.anthropic.com/settings/keys")}>
         <Text style={styles.link}>API 키 발급받기 (console.anthropic.com)</Text>
       </Pressable>
     </View>

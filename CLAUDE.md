@@ -14,37 +14,42 @@
 
 ## 프로젝트 개요
 
-사진을 찍으면 문서 경계 자동 인식 → 원근 보정 → OCR → 검색 가능한 PDF로 만들어주는
-React Native(Expo) 앱입니다. 기능/화면 구성/기술 스택 등 전체적인 내용은 `README.md`를
-먼저 참고하세요.
+사진을 찍으면 AI 요약(+ 교과서로 판단되면 예상문제까지) PDF를 만들어주는, 토스 앱 안에서
+실행되는 앱인토스(AppinToss) 미니앱입니다. Granite 프레임워크(`@granite-js/react-native`)
+기반이며, 원래는 독립 Expo 앱이었다가 재개발되었습니다. 기능/화면 구성/기술 스택은
+`README.md`를, 재개발 배경과 기존 Expo 버전 대비 달라진(축소된) 기능·롤백 지점은
+`요구사항명세서.md`를 먼저 참고하세요.
 
 ## 코드베이스 구조
 
 ```
+granite.config.ts    # 앱인토스 앱 설정(appName, 권한, 브랜드) — appName은 콘솔 등록값과 동일해야 함
+pages/                # 파일 기반 라우팅. 파일 하나 = 화면 하나 (_layout.tsx는 공통 헤더)
+assets/fonts/          # PDF 렌더링용 한글 서브셋 폰트 (NotoSansKR-Regular.ttf)
 src/
   types/            # ScannedPage, ScannedDocument 등 타입
   services/
-    documentScanner.ts  # 네이티브 스캐너 호출
-    imageEnhancer.ts     # Skia 기반 적응형 이진화 보정
-    ocr.ts               # ML Kit OCR 호출
-    pdfBuilder.ts         # HTML → PDF (원본 스캔 / AI 요약), 폴더 선택 저장
-    summarizer.ts         # 파일 이름용 OCR 텍스트 힌트 추출 (네트워크 호출 없음)
-    summaryAi.ts          # Claude API로 실제 내용 요약 + 교과서 판단 시 예상문제 생성
-    pdfImport.ts           # 기존 PDF 폴더 탐색/같은 폴더에 요약 저장 (Android SAF)
-    apiKeyStore.ts        # Anthropic API 키 SecureStore 저장
-    storage.ts             # AsyncStorage 영속화
+    pdfBuilder.ts         # pdf-lib로 원본(사진)/요약 PDF 생성 + 기기 저장(saveBase64Data)
+    summaryAi.ts          # Claude API에 PDF를 직접 보내 요약 + 교과서 판단 시 예상문제 생성
+    storage.ts             # 문서 목록 영속화 (앱인토스 Storage API, AsyncStorage 아님)
+    apiKeyStore.ts        # Anthropic API 키 저장 (앱인토스 Storage API)
   context/            # DocumentsContext (문서 목록 상태 관리)
-  navigation/          # RootNavigator
-  screens/             # 화면 컴포넌트
-  components/          # DocumentCard, PageThumbnail
+  components/          # PageThumbnail
+  utils/               # id.ts
 ```
 
 ## 개발 시 참고사항
 
-- 이 앱은 카메라·OCR용 네이티브 모듈을 사용하므로 **Expo Go로는 실행할 수 없습니다.**
-  `npx expo prebuild` 후 `npx expo run:android`/`run:ios`로 실행합니다.
-- 타입 체크: `npm run typecheck` (tsc --noEmit)
-- 린트: `npm run lint` (eslint-config-expo 기반)
+- 이 프로젝트는 Expo가 아니라 **Granite CLI**로 실행한다: `npm run dev`(`granite dev`),
+  `npm run build`(`granite build`, 앱인토스 콘솔에 올릴 `.ait` 번들 생성).
+- 타입 체크: `npm run typecheck` (tsc --noEmit) · 린트: `npm run lint`
+- **앱인토스 SDK에는 온디바이스 OCR, 네이티브 PDF 생성, 파일 재읽기 API가 없다.**
+  그래서 원본 PDF는 텍스트 레이어 없는 사진 PDF이고, AI 요약은 OCR 텍스트가 아니라
+  촬영한 사진들로 만든 PDF를 Claude에 통째로 보내서 받는다(`summaryAi.ts`). 새로운
+  앱인토스 API를 쓰기 전에는 반드시 실제로 설치된 패키지의 타입 정의로 존재 여부를
+  확인할 것 — 개발자센터 문서가 아직 배포되지 않은 기능을 먼저 설명하는 경우가 있다
+  (예: 문서에 있던 `openPDFViewer`가 실제 배포 패키지에는 없었다).
 - AI 요약/예상문제 생성은 클라이언트에서 Anthropic API를 직접 호출합니다
-  (`src/services/summaryAi.ts`). API 키가 없으면 `MissingApiKeyError`를 던지며, 이 실패는
-  원본 스캔 PDF 생성 자체를 막지 않도록 항상 별도로 try/catch 처리되어 있습니다.
+  (`src/services/summaryAi.ts`). API 키가 없으면 `MissingApiKeyError`를 던진다.
+- PDF에 한글을 그릴 때는 반드시 `assets/fonts/NotoSansKR-Regular.ttf`를 심은 폰트를
+  써야 한다 — pdf-lib 내장 표준 폰트는 한글 글리프가 없다.

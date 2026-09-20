@@ -1,234 +1,189 @@
-import { Platform } from "react-native";
-import * as FileSystem from "expo-file-system";
-import * as ImageManipulator from "expo-image-manipulator";
-import * as Print from "expo-print";
+import { Image } from "react-native";
+import { PDFDocument, PDFFont, rgb } from "pdf-lib";
+import fontkit from "@pdf-lib/fontkit";
+import { saveBase64Data } from "@apps-in-toss/framework";
 import { ScannedPage } from "@/types";
 import { AiDocumentResult } from "@/services/summaryAi";
 
-const PAGE_WIDTH_PT = 595; // A4 @ 72dpi
-const PAGE_HEIGHT_PT = 842;
-// Full-resolution scans (often 8-15MB) blow up ~33% as base64 and can make
-// the print WebView hang or OOM once multiple pages are embedded in one
-// HTML string, so downscale/compress before embedding.
-const MAX_EMBED_WIDTH = 2200;
+const PAGE_WIDTH = 595; // A4 @ 72dpi
+const PAGE_HEIGHT = 842;
+const MARGIN = 48;
+const CONTENT_WIDTH = PAGE_WIDTH - MARGIN * 2;
 
-async function toDataUri(imageUri: string): Promise<string> {
-  const resized = await ImageManipulator.manipulateAsync(
-    imageUri,
-    [{ resize: { width: MAX_EMBED_WIDTH } }],
-    { compress: 0.85, format: ImageManipulator.SaveFormat.JPEG }
-  );
-  const base64 = await FileSystem.readAsStringAsync(resized.uri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-  return `data:image/jpeg;base64,${base64}`;
+const TITLE_SIZE = 18;
+const BADGE_SIZE = 10;
+const HEADING_SIZE = 14;
+const BODY_SIZE = 12;
+const ANSWER_SIZE = 11;
+const NUMBER_COLUMN_WIDTH = 22;
+
+const COLOR_TEXT = rgb(0x11 / 255, 0x11 / 255, 0x11 / 255);
+const COLOR_BRAND = rgb(0x25 / 255, 0x63 / 255, 0xeb / 255);
+const COLOR_MUTED = rgb(0x64 / 255, 0x74 / 255, 0x8b / 255);
+
+let cachedFontBytes: ArrayBuffer | null = null;
+
+// 앱인토스(Granite) 환경에는 로컬 파일을 읽는 API가 없어서, 번들에 포함된 폰트 자산을
+// RN의 표준 방식(require + resolveAssetSource)으로 URI를 얻은 뒤 fetch로 바이트를
+// 받아온다. 한글은 pdf-lib 내장 표준 폰트(Helvetica 등)로는 그려지지 않기 때문에,
+// 한글 글리프가 포함된 폰트(전체 한글 음절 + 기본 라틴/문장부호로 서브셋)를 함께
+// 번들링해 embedFont로 심어준다. (assets/fonts/NotoSansKR-Regular.ttf)
+async function loadKoreanFontBytes(): Promise<ArrayBuffer> {
+  if (cachedFontBytes) return cachedFontBytes;
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const asset = Image.resolveAssetSource(require("../../assets/fonts/NotoSansKR-Regular.ttf"));
+  const response = await fetch(asset.uri);
+  cachedFontBytes = await response.arrayBuffer();
+  return cachedFontBytes;
 }
 
 /**
- * Renders one page as a full-bleed image with an invisible text layer
- * positioned over each OCR'd line, so the resulting PDF page looks like the
- * photo but its text is selectable/searchable — the standard "scanner app"
- * trick, since expo-print/WebView can't otherwise burn a text layer into
- * an image-based PDF.
+ * 촬영한 페이지 이미지를 그대로 한 장씩 담은 PDF를 만든다. 앱인토스 환경에는 온디바이스
+ * OCR이 없어서 텍스트 레이어를 심을 수 없다 — 즉 이 PDF는 이전 Expo 버전과 달리
+ * "검색 가능한 PDF"가 아니라 사진을 모아둔 PDF다.
  */
-function buildPageHtml(page: ScannedPage, imageDataUri: string): string {
-  const scaleX = PAGE_WIDTH_PT / page.width;
-  const scaleY = PAGE_HEIGHT_PT / page.height;
-
-  const textLayer = (page.ocrBlocks ?? [])
-    .map((block) => {
-      const left = block.frame.x * scaleX;
-      const top = block.frame.y * scaleY;
-      const width = block.frame.width * scaleX;
-      const height = block.frame.height * scaleY;
-      const fontSize = Math.max(height * 0.9, 1);
-      const escaped = block.text
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;");
-      return `<span style="position:absolute;left:${left}pt;top:${top}pt;width:${width}pt;height:${height}pt;font-size:${fontSize}pt;line-height:${height}pt;color:transparent;white-space:nowrap;overflow:hidden;">${escaped}</span>`;
-    })
-    .join("");
-
-  return `
-    <div class="page">
-      <img src="${imageDataUri}" class="page-image" />
-      ${textLayer}
-    </div>
-  `;
-}
-
-export async function buildSearchablePdf(pages: ScannedPage[]): Promise<string> {
+export async function buildScanPdfBase64(pages: ScannedPage[]): Promise<string> {
   if (pages.length === 0) {
-    throw new Error("PDF를 생성하려면 최소 한 페이지가 필요합니다.");
+    throw new Error("PDF를 만들려면 최소 한 장은 촬영해야 합니다.");
   }
 
-  const pagesHtml = await Promise.all(
-    pages.map(async (page) => buildPageHtml(page, await toDataUri(page.imageUri)))
-  );
+  const pdfDoc = await PDFDocument.create();
+  for (const page of pages) {
+    const jpgImage = await pdfDoc.embedJpg(page.dataUri);
+    const { width, height } = jpgImage.scaleToFit(CONTENT_WIDTH + MARGIN, PAGE_HEIGHT - MARGIN);
+    const pdfPage = pdfDoc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+    pdfPage.drawImage(jpgImage, {
+      x: (PAGE_WIDTH - width) / 2,
+      y: (PAGE_HEIGHT - height) / 2,
+      width,
+      height,
+    });
+  }
 
-  const html = `
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <style>
-          @page { size: A4; margin: 0; }
-          * { margin: 0; padding: 0; box-sizing: border-box; }
-          body { width: ${PAGE_WIDTH_PT}pt; }
-          .page {
-            position: relative;
-            width: ${PAGE_WIDTH_PT}pt;
-            height: ${PAGE_HEIGHT_PT}pt;
-            page-break-after: always;
-            overflow: hidden;
-          }
-          .page:last-child { page-break-after: auto; }
-          .page-image {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-          }
-        </style>
-      </head>
-      <body>
-        ${pagesHtml.join("\n")}
-      </body>
-    </html>
-  `;
-
-  const { uri } = await Print.printToFileAsync({ html, base64: false });
-  return uri;
+  return pdfDoc.saveAsBase64();
 }
 
-export async function persistPdf(tempUri: string, fileName: string): Promise<string> {
-  const dir = `${FileSystem.documentDirectory}pdfs/`;
-  await FileSystem.makeDirectoryAsync(dir, { intermediates: true }).catch(() => undefined);
-  const destination = `${dir}${fileName}.pdf`;
-  await FileSystem.copyAsync({ from: tempUri, to: destination });
-  return destination;
+// 문자 단위로 줄바꿈한다 — 한글은 라틴 문자와 달리 단어 사이 공백 기준 줄바꿈이
+// 필수가 아니라서, 지정한 최대 너비를 넘기기 직전까지 한 글자씩 채우는 방식으로
+// 충분하다.
+function wrapText(text: string, font: PDFFont, size: number, maxWidth: number): string[] {
+  if (!text) return [""];
+  const lines: string[] = [];
+  let current = "";
+  for (const ch of Array.from(text)) {
+    const candidate = current + ch;
+    if (current && font.widthOfTextAtSize(candidate, size) > maxWidth) {
+      lines.push(current);
+      current = ch;
+    } else {
+      current = candidate;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
 }
 
-function escapeHtml(text: string): string {
-  return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
-
-// Claude에게 "1. 2. 3. ..." 형식으로 번호를 매겨 요약/예상문제를 만들도록 요청하므로
-// (summaryAi.ts의 SUMMARY_INSTRUCTION), 그 번호를 텍스트 그대로 두지 않고 번호/본문을
-// 나눠 정렬된 목록처럼 렌더링해 가독성을 높인다. 혹시 모델이 번호 없이 응답하면 일반
-// 문단으로 그대로 표시된다.
 const NUMBERED_LINE = /^(\d+)[.)]\s*(.*)$/;
-// 예상문제 각 항목 다음 줄의 "정답: ..." 은 문제와 구분되도록 별도 스타일로 표시한다.
 const ANSWER_LINE = /^정답\s*[:：]\s*(.*)$/;
 
-function renderSummaryLine(rawLine: string): string {
-  const numberedMatch = rawLine.match(NUMBERED_LINE);
-  if (numberedMatch) {
-    const [, number, rest] = numberedMatch;
-    return `<div class="item"><span class="item-number">${number}.</span><span class="item-text">${
-      escapeHtml(rest) || "&nbsp;"
-    }</span></div>`;
-  }
-  const answerMatch = rawLine.match(ANSWER_LINE);
-  if (answerMatch) {
-    return `<p class="answer">정답: ${escapeHtml(answerMatch[1])}</p>`;
-  }
-  return `<p>${escapeHtml(rawLine)}</p>`;
-}
+class PdfWriter {
+  private doc: PDFDocument;
+  private font: PDFFont;
+  private page: ReturnType<PDFDocument["addPage"]>;
+  private cursorY = PAGE_HEIGHT - MARGIN;
 
-function renderNumberedSection(text: string): string {
-  return text
-    .split("\n")
-    .filter((line) => line.trim().length > 0)
-    .map(renderSummaryLine)
-    .join("\n");
+  constructor(doc: PDFDocument, font: PDFFont) {
+    this.doc = doc;
+    this.font = font;
+    this.page = doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+  }
+
+  private ensureSpace(height: number) {
+    if (this.cursorY - height < MARGIN) {
+      this.page = this.doc.addPage([PAGE_WIDTH, PAGE_HEIGHT]);
+      this.cursorY = PAGE_HEIGHT - MARGIN;
+    }
+  }
+
+  drawLine(text: string, options: { x?: number; size?: number; color?: ReturnType<typeof rgb>; gap?: number }) {
+    const { x = MARGIN, size = BODY_SIZE, color = COLOR_TEXT, gap = size * 1.6 } = options;
+    this.ensureSpace(gap);
+    this.page.drawText(text, { x, y: this.cursorY - size, size, font: this.font, color });
+    this.cursorY -= gap;
+  }
+
+  drawWrapped(text: string, options: { x?: number; maxWidth?: number; size?: number; color?: ReturnType<typeof rgb> }) {
+    const { x = MARGIN, maxWidth = CONTENT_WIDTH, size = BODY_SIZE, color = COLOR_TEXT } = options;
+    const lines = wrapText(text, this.font, size, maxWidth);
+    for (const line of lines) {
+      this.drawLine(line, { x, size, color });
+    }
+  }
+
+  drawNumberedSection(text: string) {
+    for (const rawLine of text.split("\n")) {
+      const line = rawLine.trim();
+      if (!line) continue;
+
+      const numbered = line.match(NUMBERED_LINE);
+      if (numbered) {
+        const [, number, rest] = numbered;
+        const lines = wrapText(rest, this.font, BODY_SIZE, CONTENT_WIDTH - NUMBER_COLUMN_WIDTH);
+        lines.forEach((wrapped, i) => {
+          this.drawLine(i === 0 ? `${number}.` : "", { x: MARGIN, size: BODY_SIZE, color: COLOR_BRAND });
+          this.cursorY += BODY_SIZE * 1.6; // 번호와 같은 줄에 본문을 겹쳐 그리기 위해 되돌린다.
+          this.drawLine(wrapped, { x: MARGIN + NUMBER_COLUMN_WIDTH, size: BODY_SIZE, color: COLOR_TEXT });
+        });
+        continue;
+      }
+
+      const answer = line.match(ANSWER_LINE);
+      if (answer) {
+        this.drawWrapped(`정답: ${answer[1]}`, {
+          x: MARGIN + NUMBER_COLUMN_WIDTH,
+          maxWidth: CONTENT_WIDTH - NUMBER_COLUMN_WIDTH,
+          size: ANSWER_SIZE,
+          color: COLOR_MUTED,
+        });
+        continue;
+      }
+
+      this.drawWrapped(line, { size: BODY_SIZE });
+    }
+  }
+
+  async toBase64(): Promise<string> {
+    return this.doc.saveAsBase64();
+  }
 }
 
 /**
- * 스캔 이미지가 아니라, Claude가 만든 요약(및 교과서로 판단된 경우 예상문제) 텍스트만
- * 담은 별도의 PDF를 만든다. 원본 스캔 PDF(buildSearchablePdf)와는 독립된 파일이다.
+ * Claude가 만든 요약(및 교과서로 판단된 경우 예상문제) 텍스트만 담은 PDF를 만든다.
  */
-export async function buildSummaryPdf(result: AiDocumentResult, title: string): Promise<string> {
-  const escapedTitle = escapeHtml(title);
-  const summaryHtml = renderNumberedSection(result.summary);
-  const questionsHtml = result.questions ? renderNumberedSection(result.questions) : null;
+export async function buildSummaryPdfBase64(result: AiDocumentResult, title: string): Promise<string> {
+  const pdfDoc = await PDFDocument.create();
+  pdfDoc.registerFontkit(fontkit);
+  const fontBytes = await loadKoreanFontBytes();
+  const font = await pdfDoc.embedFont(fontBytes, { subset: true });
 
-  const html = `
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <style>
-          @page { size: A4; margin: 48pt; }
-          body { font-family: -apple-system, "Malgun Gothic", sans-serif; }
-          h1 { font-size: 18pt; margin-bottom: 4pt; }
-          h2 { font-size: 14pt; margin-top: 28pt; margin-bottom: 12pt; color: #111; }
-          .badge { color: #2563eb; font-size: 10pt; font-weight: 700; margin-bottom: 16pt; }
-          p { font-size: 12pt; line-height: 1.6; color: #111; margin-bottom: 10pt; }
-          .item { display: flex; margin-bottom: 10pt; }
-          .item-number { width: 22pt; flex-shrink: 0; font-size: 12pt; font-weight: 700; color: #2563eb; }
-          .item-text { flex: 1; font-size: 12pt; line-height: 1.6; color: #111; }
-          .answer { margin-top: -4pt; margin-left: 22pt; font-size: 11pt; color: #64748b; }
-        </style>
-      </head>
-      <body>
-        <div class="badge">AI 요약 (Claude)</div>
-        <h1>${escapedTitle}</h1>
-        ${summaryHtml}
-        ${questionsHtml ? `<h2>예상 문제</h2>${questionsHtml}` : ""}
-      </body>
-    </html>
-  `;
+  const writer = new PdfWriter(pdfDoc, font);
+  writer.drawLine("AI 요약 (Claude)", { size: BADGE_SIZE, color: COLOR_BRAND, gap: BADGE_SIZE * 2.2 });
+  writer.drawWrapped(title, { size: TITLE_SIZE });
+  writer.drawNumberedSection(result.summary);
 
-  const { uri } = await Print.printToFileAsync({ html, base64: false });
-  return uri;
-}
-
-export type SaveToDirectoryResult = "saved" | "cancelled" | "unsupported";
-
-export class FolderNotWritableError extends Error {
-  constructor() {
-    super('이 폴더는 지원 안 됨, 이전 메뉴 "공유/저장"을 이용하세요.');
-    this.name = "FolderNotWritableError";
+  if (result.questions) {
+    writer.drawLine("예상 문제", { size: HEADING_SIZE, gap: HEADING_SIZE * 2.4 });
+    writer.drawNumberedSection(result.questions);
   }
+
+  return writer.toBase64();
 }
 
 /**
- * 사용자가 직접 고른 폴더(Android의 Storage Access Framework 폴더 선택 다이얼로그)에
- * PDF를 복사해 넣는다. iOS는 Expo가 이에 대응하는 폴더 선택 API를 제공하지 않으므로
- * "unsupported"를 돌려주고, 호출 측에서 기존 공유 시트("파일 앱에 저장")로 안내한다.
+ * 생성된 PDF를 기기에 파일로 저장한다. 앱인토스 SDK에는(적어도 현재 배포된 버전에는)
+ * PDF를 앱 안에서 바로 열어 보여주는 뷰어 API가 없어서, saveBase64Data로 기기에
+ * 내려주는 것으로 끝난다 — 실제 파일은 기기의 다운로드 위치에서 열어봐야 한다.
  */
-export async function saveToChosenDirectory(pdfUri: string): Promise<SaveToDirectoryResult> {
-  if (Platform.OS !== "android") {
-    return "unsupported";
-  }
-
-  const permissions = await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
-  if (!permissions.granted) {
-    return "cancelled";
-  }
-
-  const baseName = (pdfUri.split("/").pop() ?? "document.pdf").replace(/\.pdf$/i, "");
-  const base64 = await FileSystem.readAsStringAsync(pdfUri, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
-
-  try {
-    const destinationUri = await FileSystem.StorageAccessFramework.createFileAsync(
-      permissions.directoryUri,
-      baseName,
-      "application/pdf"
-    );
-    await FileSystem.writeAsStringAsync(destinationUri, base64, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-  } catch {
-    // Google Drive 등 일부 클라우드 폴더는 SAF로 조회는 되지만 새 파일 쓰기는 막혀
-    // 있어서 여기서 원인불명의 java.io.IOException이 올라온다. 사용자에게는 원본
-    // 예외 대신 다음 행동을 알려준다.
-    throw new FolderNotWritableError();
-  }
-
-  return "saved";
+export async function savePdfToDevice(base64Pdf: string, fileName: string): Promise<void> {
+  await saveBase64Data({ data: base64Pdf, fileName, mimeType: "application/pdf" });
 }
