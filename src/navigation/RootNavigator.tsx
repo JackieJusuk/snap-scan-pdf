@@ -1,5 +1,6 @@
-import React from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import React, { useEffect } from "react";
+import { BackHandler } from "react-native";
+import { NavigationContainer, useNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { ScannedPage } from "@/types";
 import HomeScreen from "@/screens/HomeScreen";
@@ -24,8 +25,23 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function RootNavigator() {
+  const navigationRef = useNavigationContainerRef<RootStackParamList>();
+
+  useEffect(() => {
+    // 폰의 하드웨어/제스처 뒤로가기는 화면을 한 단계씩 거슬러 올라가는 대신, 바로
+    // 홈으로 이동시킨다. 이미 홈이면 기본 동작(앱 종료)에 맡긴다.
+    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+      if (navigationRef.getCurrentRoute()?.name !== "Home") {
+        navigationRef.reset({ index: 0, routes: [{ name: "Home" }] });
+        return true;
+      }
+      return false;
+    });
+    return () => subscription.remove();
+  }, [navigationRef]);
+
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <Stack.Navigator
         initialRouteName="Home"
         screenOptions={{ header: (props) => <AppHeader {...props} /> }}
