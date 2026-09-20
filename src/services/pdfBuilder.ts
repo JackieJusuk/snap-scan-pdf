@@ -150,6 +150,13 @@ export async function buildSummaryPdf(summaryText: string, title: string): Promi
 
 export type SaveToDirectoryResult = "saved" | "cancelled" | "unsupported";
 
+export class FolderNotWritableError extends Error {
+  constructor() {
+    super('이 폴더는 지원 안 됨, 이전 메뉴 "공유/저장"을 이용하세요.');
+    this.name = "FolderNotWritableError";
+  }
+}
+
 /**
  * 사용자가 직접 고른 폴더(Android의 Storage Access Framework 폴더 선택 다이얼로그)에
  * PDF를 복사해 넣는다. iOS는 Expo가 이에 대응하는 폴더 선택 API를 제공하지 않으므로
@@ -169,13 +176,22 @@ export async function saveToChosenDirectory(pdfUri: string): Promise<SaveToDirec
   const base64 = await FileSystem.readAsStringAsync(pdfUri, {
     encoding: FileSystem.EncodingType.Base64,
   });
-  const destinationUri = await FileSystem.StorageAccessFramework.createFileAsync(
-    permissions.directoryUri,
-    baseName,
-    "application/pdf"
-  );
-  await FileSystem.writeAsStringAsync(destinationUri, base64, {
-    encoding: FileSystem.EncodingType.Base64,
-  });
+
+  try {
+    const destinationUri = await FileSystem.StorageAccessFramework.createFileAsync(
+      permissions.directoryUri,
+      baseName,
+      "application/pdf"
+    );
+    await FileSystem.writeAsStringAsync(destinationUri, base64, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+  } catch {
+    // Google Drive 등 일부 클라우드 폴더는 SAF로 조회는 되지만 새 파일 쓰기는 막혀
+    // 있어서 여기서 원인불명의 java.io.IOException이 올라온다. 사용자에게는 원본
+    // 예외 대신 다음 행동을 알려준다.
+    throw new FolderNotWritableError();
+  }
+
   return "saved";
 }
